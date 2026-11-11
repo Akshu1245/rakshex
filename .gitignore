@@ -1,0 +1,8 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+.colab_config.json
+.system_generated/
+*.log
+node_modules/

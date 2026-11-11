@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>RakshEx · Enterprise Multi-Agent Command Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #07090E; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #07090E; }
+    ::-webkit-scrollbar-thumb { background: #1E2638; border-radius: 2px; }
+    .glow-cyan { text-shadow: 0 0 10px rgba(6, 182, 212, 0.6); }
+    .glow-emerald { text-shadow: 0 0 10px rgba(16, 185, 129, 0.6); }
+    .glow-rose { text-shadow: 0 0 10px rgba(244, 63, 94, 0.6); }
+    canvas { display: block; }
+  </style>
+</head>
+<body class="text-slate-200 h-screen flex flex-col overflow-hidden antialiased select-none">
+
+  <!-- Enterprise Mission Control Top Bar -->
+  <header class="h-14 bg-[#0A0D14] border-b border-slate-800/80 px-6 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center space-x-4">
+      <div class="h-8 w-8 rounded bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-bold text-white shadow-md shadow-cyan-500/20">
+        <i class="fa-solid fa-cube text-sm"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold tracking-wider text-white">RAKSHEX</span>
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-400 border border-cyan-800/50">TOPOLOGY v3.2</span>
+          <span class="flex items-center gap-1 text-[10px] text-emerald-400 font-mono bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 16 MESH NODES ONLINE
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Telemetry Tickers -->
+    <div class="flex items-center space-x-6 text-xs mono">
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-500">ROUTER:</span>
+        <span class="text-amber-400 font-medium">Jev 1.13</span>
+        <span class="text-[10px] text-slate-600">(294ms)</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-500">STATE:</span>
+        <span class="text-emerald-400">REDIS WAL ACTIVE</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-500">BUDGET:</span>
+        <span class="text-cyan-400 font-semibold">$0.00 SPENT</span>
+      </div>
+      <button onclick="triggerMeshTransmission()" class="px-3 py-1 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded text-xs font-medium transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
+        <i class="fa-solid fa-bolt text-[10px]"></i> Dispatch Test Pulse
+      </button>
+    </div>
+  </header>
+
+  <!-- Split Viewport: Live Topology Canvas (Top) & Real-Time Debate Terminal (Bottom) -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Left Roster: 16 Models Mesh -->
+    <aside class="w-64 bg-[#0A0D14] border-r border-slate-800/80 flex flex-col shrink-0 z-10">
+      <div class="p-3 border-b border-slate-800/80 flex items-center justify-between">
+        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Active Mesh Nodes</span>
+        <span class="text-[10px] text-slate-500 mono">16/16</span>
+      </div>
+      <div class="flex-1 overflow-y-auto p-2 space-y-1 mono text-xs" id="roster-list">
+        <!-- Rendered Node list -->
+      </div>
+    </aside>
+
+    <!-- Main Viewport: Canvas + Lower Terminal -->
+    <main class="flex-1 flex flex-col relative overflow-hidden bg-[#05070B]">
+      
+      <!-- Top Layer: Live Canvas Interactive Graph with Glowing Packets -->
+      <div class="h-3/5 relative border-b border-slate-800/80">
+        <canvas id="topology-canvas" class="w-full h-full"></canvas>
+        
+        <!-- Canvas HUD Overlay -->
+        <div class="absolute top-4 left-4 pointer-events-none space-y-1">
+          <div class="text-[11px] font-mono text-cyan-400 flex items-center gap-1.5 glow-cyan">
+            <i class="fa-solid fa-satellite-dish"></i> LIVE INTER-AGENT TRAFFIC STREAM
+          </div>
+          <div class="text-[10px] text-slate-500">Real-time particle vectors signify active payload transfers between builder and auditor nodes.</div>
+        </div>
+
+        <div class="absolute top-4 right-4 pointer-events-none flex gap-2 text-[10px] mono">
+          <span class="px-2 py-1 rounded bg-[#0A0D14]/90 border border-slate-800 text-purple-400 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-purple-400"></span> Builders
+          </span>
+          <span class="px-2 py-1 rounded bg-[#0A0D14]/90 border border-slate-800 text-rose-400 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-rose-400"></span> Adversaries
+          </span>
+          <span class="px-2 py-1 rounded bg-[#0A0D14]/90 border border-slate-800 text-amber-400 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span> Jev Gate
+          </span>
+        </div>
+      </div>
+
+      <!-- Bottom Layer: Live Adversarial Debate & Transaction Logs Terminal -->
+      <div class="h-2/5 flex flex-col bg-[#070A10]">
+        <div class="h-8 bg-[#0A0D14] border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0">
+          <div class="flex items-center space-x-3 text-xs mono">
+            <span class="text-white font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-terminal text-cyan-400"></i> LIVE ADVERSARIAL AUDIT LOG
+            </span>
+            <span class="text-slate-600">|</span>
+            <span class="text-slate-400 text-[11px]">Real-Time Empirical Proof Verification Stream</span>
+          </div>
+          <div class="text-[10px] mono text-slate-500">AUTONOMOUS CYCLE ACTIVE</div>
+        </div>
+
+        <!-- Terminal Output Window -->
+        <div id="terminal-feed" class="flex-1 overflow-y-auto p-4 space-y-2 mono text-[11px] text-slate-300">
+          <div class="text-slate-500">[09:40:02] INITIALIZING RAKSHEX MESH DISCOVERY BUS...</div>
+          <div class="text-cyan-400">[09:40:05] [DISCOVERY] APInex Web Search identified 3 open-source templates (Trigger.dev, Mission-Control, gbrain).</div>
+          <div class="text-amber-400">[09:40:08] [JEV_ROUTER] Classified task: Backend async task queue. Target Builder: Qwen 3.8 MAX. Auditor: DeepSeek V4 Pro.</div>
+          <div class="text-purple-400">[09:40:12] [QWEN_3.8_BUILD] Dispatched Redis Streams consumer group architecture with XAUTOCLAIM.</div>
+          <div class="text-rose-400 bg-rose-950/20 p-2 rounded border border-rose-900/40">
+            [09:40:18] [DEEPSEEK_V4_CHALLENGE] ATTACK RAISED: "XAUTOCLAIM during network partition causes split-brain double commits. Unacceptable."
+          </div>
+          <div class="text-emerald-400 bg-emerald-950/20 p-2 rounded border border-emerald-900/40">
+            [09:40:24] [QWEN_3.8_DEFENSE] EMPIRICAL PROOF PROVIDED: Atomic Lua fencing script with monotonic epoch tokens prevents split-brain.
+          </div>
+          <div class="text-emerald-300 font-bold">[09:40:28] [JEV_VERDICT] VERDICT APPROVED (Confidence: 1.00). State written to Redis WAL. Checkpoint committed.</div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Right Sidebar: Second Brain Provenance & System Metrics -->
+    <aside class="w-80 bg-[#0A0D14] border-l border-slate-800/80 flex flex-col shrink-0 z-10">
+      <div class="p-3 border-b border-slate-800/80 flex items-center justify-between">
+        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-brain text-purple-400"></i> Second Brain Memory
+        </span>
+        <span class="text-[10px] text-emerald-400 mono">Synced</span>
+      </div>
+
+      <!-- Proven Rules Engine -->
+      <div class="p-3 border-b border-slate-800/80 space-y-2">
+        <div class="text-[11px] font-mono text-slate-400">EVOLVED RULES (.agents/rules):</div>
+        <div class="p-2 rounded bg-[#07090E] border border-slate-800/80 text-[10px] space-y-1">
+          <div class="text-cyan-400 font-semibold font-mono">RULE #1: ATOMIC_FENCING</div>
+          <div class="text-slate-400">Never auto-claim unacknowledged tasks without monotonic fencing epoch.</div>
+        </div>
+        <div class="p-2 rounded bg-[#07090E] border border-slate-800/80 text-[10px] space-y-1">
+          <div class="text-cyan-400 font-semibold font-mono">RULE #2: OPEN_SOURCE_FIRST</div>
+          <div class="text-slate-400">Verify GitHub architectures before authoring custom modules.</div>
+        </div>
+      </div>
+
+      <!-- Live Performance Gauges -->
+      <div class="flex-1 p-3 overflow-y-auto space-y-3 mono">
+        <div class="text-[11px] text-slate-400 uppercase tracking-wider">Node Performance</div>
+        
+        <div class="p-2.5 rounded bg-[#07090E] border border-slate-800/80">
+          <div class="flex justify-between text-[11px] mb-1">
+            <span class="text-slate-400">Jev Router Latency</span>
+            <span class="text-amber-400 font-bold">294ms</span>
+          </div>
+          <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-amber-400 rounded-full" style="width: 25%"></div>
+          </div>
+        </div>
+
+        <div class="p-2.5 rounded bg-[#07090E] border border-slate-800/80">
+          <div class="flex justify-between text-[11px] mb-1">
+            <span class="text-slate-400">Adversarial Approval</span>
+            <span class="text-emerald-400 font-bold">98.2%</span>
+          </div>
+          <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-400 rounded-full" style="width: 98%"></div>
+          </div>
+        </div>
+
+        <div class="p-2.5 rounded bg-[#07090E] border border-slate-800/80">
+          <div class="flex justify-between text-[11px] mb-1">
+            <span class="text-slate-400">Zero-Loss Checkpoints</span>
+            <span class="text-cyan-400 font-bold">142/142</span>
+          </div>
+          <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div class="h-full bg-cyan-400 rounded-full" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Real-Time Interactive Canvas & D3 Network Simulation Script -->
+  <script>
+    const roster = [
+      { id: "Jev 1.13", role: "router", tier: "T1", status: "online", color: "#F59E0B" },
+      { id: "Gemini 4 Carbon", role: "reasoner", tier: "T2", status: "online", color: "#6366F1" },
+      { id: "Claude Fable 5.2", role: "auditor", tier: "T2", status: "online", color: "#EC4899" },
+      { id: "Qwen 3.8 MAX", role: "builder", tier: "T3", status: "online", color: "#A855F7" },
+      { id: "DeepSeek V4 Pro", role: "adversary", tier: "T2", status: "online", color: "#F43F5E" },
+      { id: "Meta Muse Ember", role: "ui_ux", tier: "T4", status: "online", color: "#06B6D4" },
+      { id: "Kimi K3", role: "context", tier: "T3", status: "online", color: "#3B82F6" },
+      { id: "GPT-6 Luna", role: "specs", tier: "T3", status: "online", color: "#10B981" },
+      { id: "DeepSeek V4.1 Flash", role: "fast_refactor", tier: "T4", status: "online", color: "#14B8A6" },
+      { id: "Gemini 3.8 Flash", role: "streamer", tier: "T4", status: "online", color: "#8B5CF6" },
+      { id: "GLM 5.3", role: "schema", tier: "T3", status: "online", color: "#EAB308" },
+      { id: "GLM 5.3 Flash", role: "tooling", tier: "T4", status: "online", color: "#F97316" },
+      { id: "MiniMax M3.1 Flash", role: "dialogue", tier: "T4", status: "online", color: "#D946EF" },
+      { id: "HY 4", role: "enterprise", tier: "T3", status: "online", color: "#64748B" },
+      { id: "Muse Spark 1.3", role: "task_decomp", tier: "T4", status: "online", color: "#0EA5E9" },
+      { id: "APInex Search", role: "web_truth", tier: "TOOL", status: "online", color: "#22D3EE" }
+    ];
+
+    // Populate Left Roster
+    const rosterContainer = document.getElementById("roster-list");
+    roster.forEach(node => {
+      const item = document.createElement("div");
+      item.className = "p-2 rounded bg-[#07090E] border border-slate-800/80 flex items-center justify-between hover:border-slate-700 transition";
+      item.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${node.color}"></span>
+          <span class="text-slate-300 font-medium">${node.id}</span>
+        </div>
+        <span class="text-[9px] px-1.5 py-0.2 rounded font-mono" style="background-color: ${node.color}22; color: ${node.color}">${node.tier}</span>
+      `;
+      rosterContainer.appendChild(item);
+    });
+
+    // Canvas Force Simulation & Live Data Particles
+    const canvas = document.getElementById("topology-canvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    // Map Nodes & Links
+    const nodes = roster.map((d, i) => ({ ...d, index: i }));
+    const links = [
+      { source: 0, target: 1 }, // Jev -> Gemini Carbon
+      { source: 0, target: 3 }, // Jev -> Qwen 3.8
+      { source: 1, target: 2 }, // Gemini Carbon <-> Claude Fable
+      { source: 3, target: 4 }, // Qwen 3.8 <-> DeepSeek V4 Pro
+      { source: 0, target: 5 }, // Jev -> Muse Ember
+      { source: 5, target: 7 }, // Muse Ember <-> GPT-6 Luna
+      { source: 0, target: 6 }, // Jev -> Kimi K3
+      { source: 3, target: 15 }, // Qwen 3.8 <-> APInex Search
+      { source: 1, target: 15 }, // Gemini Carbon <-> APInex Search
+      { source: 4, target: 8 }, // DeepSeek V4 -> V4.1 Flash
+      { source: 0, target: 9 }, // Jev -> Gemini 3.8 Flash
+      { source: 3, target: 10 }, // Qwen 3.8 -> GLM 5.3
+      { source: 5, target: 12 }, // Muse Ember -> MiniMax
+      { source: 1, target: 13 }, // Gemini Carbon -> HY 4
+      { source: 0, target: 14 }  // Jev -> Muse Spark
+    ];
+
+    // High-Frequency Animated Traffic Particles (Arrow Data Packets)
+    let particles = [];
+    links.forEach(l => {
+      for (let i = 0; i < 2; i++) {
+        particles.push({
+          sourceIndex: l.source,
+          targetIndex: l.target,
+          t: Math.random(),
+          speed: 0.004 + Math.random() * 0.006,
+          color: "#06B6D4"
+        });
+      }
+    });
+
+    const simulation = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id((d, i) => i).distance(110))
+      .force("charge", d3.forceManyBody().strength(-240))
+      .force("center", d3.forceCenter(canvas.width / 2, canvas.height / 2))
+      .on("tick", render);
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 1. Draw Network Connections
+      links.forEach(link => {
+        ctx.strokeStyle = "rgba(30, 41, 59, 0.7)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(link.source.x, link.source.y);
+        ctx.lineTo(link.target.x, link.target.y);
+        ctx.stroke();
+      });
+
+      // 2. Draw Moving Data Flow Particles (Animated Arrow Vectors)
+      particles.forEach(p => {
+        p.t += p.speed;
+        if (p.t > 1) p.t = 0;
+
+        const s = typeof p.sourceIndex === 'object' ? p.sourceIndex : nodes[p.sourceIndex];
+        const target = typeof p.targetIndex === 'object' ? p.targetIndex : nodes[p.targetIndex];
+
+        if (s && target) {
+          const x = s.x + (target.x - s.x) * p.t;
+          const y = s.y + (target.y - s.y) * p.t;
+
+          // Glowing Packet
+          ctx.fillStyle = p.color;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = p.color;
+          ctx.beginPath();
+          ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      });
+
+      // 3. Draw Specialized Model Nodes
+      nodes.forEach(node => {
+        // Outer Glow
+        ctx.strokeStyle = node.color;
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = node.color;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 9, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner Core
+        ctx.fillStyle = "#0A0D14";
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Label
+        ctx.fillStyle = "#E2E8F0";
+        ctx.font = '10px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(node.id, node.x, node.y + 20);
+      });
+    }
+
+    function triggerMeshTransmission() {
+      // Spawn burst of energetic particles
+      for (let i = 0; i < 15; i++) {
+        const randLink = links[Math.floor(Math.random() * links.length)];
+        particles.push({
+          sourceIndex: randLink.source,
+          targetIndex: randLink.target,
+          t: 0,
+          speed: 0.012 + Math.random() * 0.01,
+          color: "#F43F5E"
+        });
+      }
+      
+      const term = document.getElementById("terminal-feed");
+      const log = document.createElement("div");
+      log.className = "text-cyan-400";
+      log.innerText = `[${new Date().toLocaleTimeString()}] [TEST_PULSE] Broadcasted verification pulse across all 16 mesh links.`;
+      term.appendChild(log);
+      term.scrollTop = term.scrollHeight;
+    }
+  </script>
+</body>
+</html>
