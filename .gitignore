@@ -6,3 +6,5 @@ __pycache__/
 .system_generated/
 *.log
 node_modules/
+target/
+**/target/
